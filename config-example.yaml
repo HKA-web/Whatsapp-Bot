@@ -1,0 +1,21 @@
+jwt_access: qazplm-123
+jwt_refresh_secret: qazplm-123
+token_duration: 5m
+refresh_duration: 1d
+max_retries: 5
+retry_delay: 500
+
+server:
+  port: 4000
+  
+mssql:
+  default:
+    host: http://localhost:8001/mssql/api/querytool/
+    server: server1
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: null
+  db: 0
+  ttl: 300

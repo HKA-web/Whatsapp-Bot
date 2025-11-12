@@ -1,0 +1,111 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "WA BOT",
+    "version": "1.0.2"
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/wa/connect": {
+      "get": {
+        "tags": [
+          "WhatsApp Bot"
+        ],
+        "summary": "Inisialisasi koneksi WhatsApp (pairing mode)",
+        "description": "Memulai sesi WhatsApp baru berdasarkan nomor HP. Hasilnya berisi pesan JSON dan URL menuju halaman QR code untuk proses pairing.",
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "description": "Nomor WhatsApp lengkap (diawali 62, tanpa +)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "6281234567890"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Berhasil membuat atau melanjutkan sesi WhatsApp",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Sesi WhatsApp untuk 6281234567890 siap. Buka QR di http://localhost:3000/wa/qr/page?phone=6281234567890"
+                    },
+                    "qr_url": {
+                      "type": "string",
+                      "example": "http://localhost:3000/wa/qr/page?phone=6281234567890"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Nomor tidak valid atau parameter hilang"
+          },
+          "500": {
+            "description": "Gagal memulai koneksi WhatsApp"
+          }
+        }
+      }
+    },
+    "/wa/qr/view": {
+      "get": {
+        "tags": [
+          "WhatsApp Bot"
+        ],
+        "summary": "Ambil gambar QR WhatsApp",
+        "description": "Mengembalikan gambar QR code dalam format PNG (berubah setiap beberapa detik).",
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "6281234567890"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gambar QR dikembalikan",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "QR belum tersedia atau sudah kadaluarsa"
+          },
+          "404": {
+            "description": "Sesi belum dibuat"
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}
