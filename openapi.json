@@ -2,7 +2,8 @@
   "openapi": "3.0.0",
   "info": {
     "title": "WA BOT",
-    "version": "1.0.2"
+    "version": "1.0.2",
+    "description": "API untuk mengelola WhatsApp Bot."
   },
   "components": {
     "securitySchemes": {
@@ -11,13 +12,14 @@
         "scheme": "bearer",
         "bearerFormat": "JWT"
       }
-    }
+    },
+    "parameters": {}
   },
   "paths": {
     "/wa/connect": {
       "get": {
         "tags": [
-          "WhatsApp Bot"
+          "Pairing Device"
         ],
         "summary": "Inisialisasi koneksi WhatsApp (pairing mode)",
         "description": "Memulai sesi WhatsApp baru berdasarkan nomor HP. Hasilnya berisi pesan JSON dan URL menuju halaman QR code untuk proses pairing.",
@@ -70,7 +72,7 @@
     "/wa/qr/view": {
       "get": {
         "tags": [
-          "WhatsApp Bot"
+          "Pairing Device"
         ],
         "summary": "Ambil gambar QR WhatsApp",
         "description": "Mengembalikan gambar QR code dalam format PNG (berubah setiap beberapa detik).",
@@ -102,6 +104,211 @@
           },
           "404": {
             "description": "Sesi belum dibuat"
+          }
+        }
+      }
+    },
+    "/api/send-messages": {
+      "post": {
+        "summary": "Kirim pesan WhatsApp (single atau multi)",
+        "tags": [
+          "WhatsApp"
+        ],
+        "description": "Gunakan `_botDevice` untuk memilih device tertentu. Jika tidak diberikan, session pertama akan dipakai.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "_botDevice": {
+                        "type": "string",
+                        "description": "Device ID / nomor WA"
+                      },
+                      "jid": {
+                        "type": "string",
+                        "description": "Nomor WhatsApp tujuan"
+                      },
+                      "message": {
+                        "type": "string",
+                        "description": "Isi pesan"
+                      }
+                    },
+                    "required": [
+                      "jid",
+                      "message"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "_botDevice": {
+                        "type": "string",
+                        "description": "Device ID / nomor WA"
+                      },
+                      "messages": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "jid": {
+                              "type": "string",
+                              "description": "Nomor WhatsApp tujuan"
+                            },
+                            "message": {
+                              "type": "string",
+                              "description": "Isi pesan"
+                            }
+                          },
+                          "required": [
+                            "jid",
+                            "message"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "messages"
+                    ]
+                  }
+                ]
+              },
+              "examples": {
+                "singleMessage": {
+                  "summary": "Kirim satu pesan",
+                  "value": {
+                    "_botDevice": "6285183148645",
+                    "jid": "6285648007953@s.whatsapp.net",
+                    "message": "Halo, ini pesan dari bot!"
+                  }
+                },
+                "multiMessage": {
+                  "summary": "Kirim banyak pesan sekaligus",
+                  "value": {
+                    "_botDevice": "6285183148645",
+                    "messages": [
+                      {
+                        "jid": "628564xxxxx@s.whatsapp.net",
+                        "message": "Halo, admin, pesan dikirim melalui wa bot!"
+                      },
+                      {
+                        "jid": "628121xxxxxx@s.whatsapp.net",
+                        "message": "Halo, yoga, pesan dikirim melalui wa bot!"
+                      },
+                      {
+                        "jid": "6281xxxx@s.whatsapp.net",
+                        "message": "Halo, tuan muda, pesan dikirim melalui wa bot!"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hasil pengiriman pesan per nomor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "jid": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "success",
+                              "error"
+                            ]
+                          },
+                          "error": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "successAll": {
+                    "summary": "Semua pesan berhasil",
+                    "value": {
+                      "results": [
+                        {
+                          "jid": "628564xxxxx@s.whatsapp.net",
+                          "status": "success",
+                          "error": null
+                        },
+                        {
+                          "jid": "628121xxxxxx@s.whatsapp.net",
+                          "status": "success",
+                          "error": null
+                        },
+                        {
+                          "jid": "6281xxxx@s.whatsapp.net",
+                          "status": "success",
+                          "error": null
+                        }
+                      ]
+                    }
+                  },
+                  "partialError": {
+                    "summary": "Beberapa pesan gagal",
+                    "value": {
+                      "results": [
+                        {
+                          "jid": "628564xxxxx@s.whatsapp.net",
+                          "status": "success",
+                          "error": null
+                        },
+                        {
+                          "jid": "628121xxxxxx@s.whatsapp.net",
+                          "status": "error",
+                          "error": "Socket WA belum siap"
+                        },
+                        {
+                          "jid": "6281xxxx@s.whatsapp.net",
+                          "status": "success",
+                          "error": null
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Device tidak ditemukan atau field wajib tidak ada",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Device tidak ditemukan"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Tidak ada device WA aktif atau socket belum siap",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Tidak ada device WA aktif"
+                }
+              }
+            }
           }
         }
       }

@@ -2,9 +2,11 @@ import { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Disconn
 import pino from "pino";
 import fs from "fs";
 import path from "path";
-import { redisClient } from "../utils/config.js";
+import { appConfig, redisClient } from "./utils/config.js";
 
-const sessions = new Map(); // Menyimpan semua instance socket aktif
+const sessions = new Map();
+const redis = redisClient(); 
+const config = appConfig();
 
 export async function connectToWhatsApp(phoneNumber) {
   const sessionDir = path.resolve(`./src/sessions/${phoneNumber}`);
@@ -35,11 +37,11 @@ export async function connectToWhatsApp(phoneNumber) {
 
     if (qr) {
       session.latestQR = qr;
-      console.log(`📲 [${phoneNumber}] QR baru diterima`);
+      console.log(`[${phoneNumber}] QR baru diterima`);
     }
 
     if (connection === "open") {
-      console.log(`✅ [${phoneNumber}] Bot terhubung`);
+      console.log(`[${phoneNumber}] Bot terhubung`);
       session.latestQR = null; // bersihkan QR setelah connect
     }
 
@@ -47,10 +49,10 @@ export async function connectToWhatsApp(phoneNumber) {
 	  const statusCode = lastDisconnect?.error?.output?.statusCode;
 
 	  if (statusCode === 401) {
-		console.log(`⚠️ [${phoneNumber}] Session expired. Harus scan ulang.`);
+		console.log(`[${phoneNumber}] Session expired. Harus scan ulang.`);
 		deleteSessionFolder(phoneNumber); // hapus folder sesi lama
 	  } else {
-		console.log(`🔄 [${phoneNumber}] Reconnecting...`);
+		console.log(`[${phoneNumber}] Reconnecting...`);
 		setTimeout(() => connectToWhatsApp(phoneNumber), 5000);
 	  }
 	}
@@ -76,17 +78,17 @@ export async function connectToWhatsApp(phoneNumber) {
     msg.message.locationMessage?.name ||
     "";
 
-  console.log(`💬 [${phoneNumber}] Pesan dari ${sender}: ${text}`);
+  console.log(`[${phoneNumber}] Pesan dari ${sender}: ${text}`);
 
   // Contoh auto-reply sederhana
   if (text.trim().toLowerCase() === "ping") {
     await sock.sendMessage(sender, { text: "pong 🏓" });
+	return;
   }
-
+  
   // --- Redis push section ---
-  if (redisClient) {
+  if (redis) {
 		try {
-		  // ambil session bot (dari helper getSession)
 		  const session = getSession(phoneNumber);
 
 		  // siapkan payload ke Redis
@@ -100,9 +102,8 @@ export async function connectToWhatsApp(phoneNumber) {
 			},
 			...msg,
 		  };
-
-		  await redisClient.publish("whatsapp:inbox", JSON.stringify(payload, null, 2));
-		  console.log("📤 Pesan dikirim ke Redis whatsapp:inbox");
+		  await redis.publish("whatsapp:inbox", JSON.stringify(payload, null, 2));
+		  console.log("📤 Pesan dikirim ke Redis");
 		} catch (err) {
 		  console.error(`Redis push error: ${err?.message || err}`);
 		}

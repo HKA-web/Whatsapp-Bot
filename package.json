@@ -6,7 +6,7 @@
   "main": "LenwySet.js",
   "scripts": {
     "dev": "node src/index.js",
-    "generate": "node src/generate-openapi.js"
+    "generate": "node src/openapi.js"
   },
   "author": "Lenwy",
   "license": "MIT",

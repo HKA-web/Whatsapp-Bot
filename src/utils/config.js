@@ -6,34 +6,156 @@ import { z } from "zod";
 
 const filePath = path.resolve("config.yaml");
 
-let config = {};
-let redisClient = null;
+let _config = {};
+export function appConfig() {
+  if (_config && Object.keys(_config).length > 0) return _config; // cache
 
-try {
-  if (fs.existsSync(filePath)) {
-    const file = fs.readFileSync(filePath, "utf8");
-    const parsed = yaml.load(file);
-    const ConfigSchema = z.record(z.string(), z.any());
-    config = ConfigSchema.parse(parsed);
-
-    if (config.redis) {
-      redisClient = new Redis({
-        host: config.redis.host,
-        port: config.redis.port,
-        password: config.redis.password || undefined,
-        db: config.redis.db || 0,
-      });
-
-      redisClient.on("connect", () => console.log("🧠 Redis connected"));
-      redisClient.on("error", (err) => console.error("Redis error:", err));
+  let config = {};
+  try {
+    if (fs.existsSync(filePath)) {
+      const file = fs.readFileSync(filePath, "utf8");
+      const parsed = yaml.load(file);
+      const ConfigSchema = z.record(z.string(), z.any());
+      config = ConfigSchema.parse(parsed);
     } else {
-      console.warn("⚠️ Tidak ada konfigurasi Redis di config.yaml");
+      console.warn("File config.yaml tidak ditemukan!");
     }
-  } else {
-    console.warn("⚠️ File config.yaml tidak ditemukan!");
+  } catch (err) {
+    console.error("Gagal memuat konfigurasi:", err);
   }
-} catch (err) {
-  console.error("❌ Gagal memuat konfigurasi:", err);
+
+  _config = config;
+  return _config;
 }
 
-export { config, redisClient };
+// Redis
+export function redisClient(options = {}) {
+  const config = appConfig();
+  if (!config.redis) {
+    console.warn("Tidak ada konfigurasi Redis di config.yaml");
+    return null;
+  }
+
+  const client = new Redis({
+    host: config.redis.host,
+    port: config.redis.port,
+    password: config.redis.password || undefined,
+    db: config.redis.db || 0,
+    ...options,
+  });
+
+  client.on("connect", () => console.log("Redis connected"));
+  client.on("error", (err) => console.error("Redis error:", err));
+
+  return client;
+}
+
+// Ambil config global sekali untuk sleep & sendChunk
+const globalConfig = appConfig();
+
+// Sleep
+export function sleep(ms = globalConfig.whatsapp?.delay ?? 500) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Send chunk
+export async function sendChunk(
+  text,
+  sendFunc,
+  maxCharsPerBatch = Math.min(globalConfig.whatsapp?.max_char ?? 4000, 4000),
+  delayMs = globalConfig.whatsapp?.delay ?? 500,
+  mode = globalConfig.whatsapp?.send_chunk_mode || "auto"
+) {
+  let chunks = [];
+
+  if (mode === "auto") {
+    mode = text.includes("\n") ? "char" : "word";
+  }
+
+  if (mode === "word") {
+    const words = text.split(/\s+/);
+    let buffer = "";
+    for (const word of words) {
+      if ((buffer + " " + word).trim().length > maxCharsPerBatch) {
+        chunks.push(buffer.trim());
+        buffer = word;
+      } else {
+        buffer += " " + word;
+      }
+    }
+    if (buffer.trim().length > 0) chunks.push(buffer.trim());
+  } else {
+    for (let i = 0; i < text.length; i += maxCharsPerBatch) {
+      chunks.push(text.slice(i, i + maxCharsPerBatch));
+    }
+  }
+
+  for (const chunk of chunks) {
+    await sendFunc(chunk);
+    if (delayMs > 0) await sleep(delayMs);
+  }
+}
+
+export function trimStrings(obj) {
+  if (Array.isArray(obj)) return obj.map(trimStrings);
+  if (obj && typeof obj === "object") {
+    const newObj = {};
+    for (const key in obj) {
+      if (typeof obj[key] === "string") newObj[key] = obj[key].trim();
+      else if (Array.isArray(obj[key]) || typeof obj[key] === "object") newObj[key] = trimStrings(obj[key]);
+      else newObj[key] = obj[key];
+    }
+    return newObj;
+  }
+  return obj;
+}
+
+export function generateSchemaFromRow(row) {
+  const schema = [];
+  for (const key in row) {
+    const value = row[key];
+    let type = "any";
+
+    if (value === null || value === undefined) type = "any";
+    else if (typeof value === "string") type = "string";
+    else if (typeof value === "number") type = "number";
+    else if (value instanceof Date) type = "date";
+    else if (typeof value === "boolean") type = "boolean";
+
+    schema.push({ name: key, type });
+  }
+  return schema;
+}
+
+export function mapRowsWithSchema(rows) {
+  if (!rows || rows.length === 0) return { schema: [], data: [] };
+
+  const schema = generateSchemaFromRow(rows[0]);
+  const data = rows.map(row => {
+    const obj = {};
+    for (const col of schema) {
+      let value = row[col.name];
+      if (col.type === "string" && typeof value === "string") value = value.trim();
+      if (col.type === "date" && value) value = new Date(value);
+      obj[col.name] = value;
+    }
+    return obj;
+  });
+
+  return { schema, data };
+}
+
+export function mapRowsDynamic(rows) {
+  if (!rows || rows.length === 0) return [];
+  const schema = generateSchemaFromRow(rows[0]);
+  return rows.map(row => {
+    const obj = {};
+    for (const col of schema) {
+      let value = row[col.name];
+      if (col.type === "string" && typeof value === "string") value = value.trim();
+      if (col.type === "date" && value) value = new Date(value);
+      obj[col.name] = value;
+    }
+    return obj;
+  });
+}

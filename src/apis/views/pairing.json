@@ -1,14 +1,8 @@
 {
-  "openapi": "3.0.0",
-  "info": {
-    "title": "WhatsApp Bot API",
-    "version": "1.0.0",
-    "description": "API untuk mengelola sesi WhatsApp multi-device (pairing mode)."
-  },
   "paths": {
     "/wa/connect": {
       "get": {
-        "tags": ["WhatsApp Bot"],
+        "tags": ["Pairing Device"],
         "summary": "Inisialisasi koneksi WhatsApp (pairing mode)",
         "description": "Memulai sesi WhatsApp baru berdasarkan nomor HP. Hasilnya berisi pesan JSON dan URL menuju halaman QR code untuk proses pairing.",
         "parameters": [
@@ -56,7 +50,7 @@
     },
     "/wa/qr/view": {
       "get": {
-        "tags": ["WhatsApp Bot"],
+        "tags": ["Pairing Device"],
         "summary": "Ambil gambar QR WhatsApp",
         "description": "Mengembalikan gambar QR code dalam format PNG (berubah setiap beberapa detik).",
         "parameters": [

@@ -1,11 +1,11 @@
-import { connectToWhatsApp, getSession } from "./service.js";
+import { connectToWhatsApp, getSession } from "../whatsapp.js";
 import QRCode from "qrcode";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PUBLIC_PATH = path.join(__dirname, "../app");
+const TEMPLATE_PATH = path.join(__dirname, "../src/views/");
 
 export async function handleConnect(req, res) {
   try {
@@ -28,7 +28,7 @@ export async function handleConnect(req, res) {
       qr_url: qrPage,
     });
   } catch (err) {
-    console.error("❌ handleConnect error:", err);
+    console.error("handleConnect error:", err);
     return res.status(500).json({
       statusCode: 500,
       message: `Gagal membuat sesi WhatsApp: ${err.message}`,
@@ -37,7 +37,7 @@ export async function handleConnect(req, res) {
 }
 
 export async function handleQRPage(req, res) {
-  const filePath = path.join(PUBLIC_PATH, "qr.html");
+  const filePath = path.join(TEMPLATE_PATH, "qr.html");
   res.sendFile(filePath);
 }
 
@@ -67,7 +67,7 @@ export async function handleQRView(req, res) {
     });
     res.end(img);
   } catch (err) {
-    console.error("❌ handleQRView error:", err);
+    console.error("handleQRView error:", err);
     res.status(500).send("Gagal memuat QR.");
   }
 }

@@ -1,3 +1,4 @@
-src/sessions/
 node_modules/
 config.yaml
+src/sessions/*
+!.gitkeep
