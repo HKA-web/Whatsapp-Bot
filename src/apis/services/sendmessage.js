@@ -42,12 +42,18 @@ export async function sendMessage(req, res) {
 
     try {
       await sendChunk(
-        String(user.message).replace(/\\n/g, "\n"),
-        async (batchText) => {
-          await sock.sendMessage(user.jid, { text: batchText });
-        }
-      );
-      results.push({ jid: user.jid, status: "success" });
+		  String(user.message).replace(/\\n/g, "\n"),
+		  async (batchText) => {
+			const sendResult = await sock.sendMessage(user.jid, { text: batchText });
+
+			results.push({
+			  jid: user.jid,
+			  status: "success",
+			  message_id: sendResult?.key?.id || null,
+			  timestamp: sendResult?.messageTimestamp || null,
+			});
+		}
+	  );
       await sleep();
     } catch (err) {
       results.push({ jid: user.jid, status: "error", error: err?.message || String(err) });

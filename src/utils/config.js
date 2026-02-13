@@ -1,4 +1,3 @@
-import Redis from "ioredis";
 import yaml from "js-yaml";
 import fs from "fs";
 import path from "path";
@@ -28,33 +27,10 @@ export function appConfig() {
   return _config;
 }
 
-// Redis
-export function redisClient(options = {}) {
-  const config = appConfig();
-  if (!config.redis) {
-    console.warn("Tidak ada konfigurasi Redis di config.yaml");
-    return null;
-  }
-
-  const client = new Redis({
-    host: config.redis.host,
-    port: config.redis.port,
-    password: config.redis.password || undefined,
-    db: config.redis.db || 0,
-    ...options,
-  });
-
-  client.on("connect", () => console.log("Redis connected"));
-  client.on("error", (err) => console.error("Redis error:", err));
-
-  return client;
-}
-
-// Ambil config global sekali untuk sleep & sendChunk
 const globalConfig = appConfig();
 
 // Sleep
-export function sleep(ms = globalConfig.whatsapp?.delay ?? 500) {
+export function sleep(ms = globalConfig.server?.delay ?? 500) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -62,9 +38,9 @@ export function sleep(ms = globalConfig.whatsapp?.delay ?? 500) {
 export async function sendChunk(
   text,
   sendFunc,
-  maxCharsPerBatch = Math.min(globalConfig.whatsapp?.max_char ?? 4000, 4000),
-  delayMs = globalConfig.whatsapp?.delay ?? 500,
-  mode = globalConfig.whatsapp?.send_chunk_mode || "auto"
+  maxCharsPerBatch = Math.min(globalConfig.server?.max_char ?? 4000, 4000),
+  delayMs = globalConfig.server?.delay ?? 500,
+  mode = globalConfig.server?.send_chunk_mode || "auto"
 ) {
   let chunks = [];
 
@@ -158,4 +134,16 @@ export function mapRowsDynamic(rows) {
     }
     return obj;
   });
+}
+
+export function deleteSessionFolder(phoneNumber) {
+  try {
+    const sessionDir = path.resolve(`./src/sessions/${phoneNumber}`);
+    if (fs.existsSync(sessionDir)) {
+      fs.rmSync(sessionDir, { recursive: true, force: true });
+      console.log(`[${phoneNumber}] Folder session dihapus.`);
+    }
+  } catch (err) {
+    console.error(`[${phoneNumber}] Gagal menghapus session:`, err.message);
+  }
 }

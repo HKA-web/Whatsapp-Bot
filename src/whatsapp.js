@@ -2,10 +2,9 @@ import { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Disconn
 import pino from "pino";
 import fs from "fs";
 import path from "path";
-import { appConfig, redisClient } from "./utils/config.js";
+import { appConfig, deleteSessionFolder } from "./utils/config.js";
 
 const sessions = new Map();
-const redis = redisClient(); 
 const config = appConfig();
 
 export async function connectToWhatsApp(phoneNumber) {
@@ -60,38 +59,36 @@ export async function connectToWhatsApp(phoneNumber) {
 
   // Handler pesan masuk
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
-  if (type !== "notify") return;
+	  if (type !== "notify") return;
 
-  const msg = messages[0];
-  if (!msg.message) return;
-  if (msg.key.fromMe) return;
+	  const msg = messages[0];
+	  if (!msg.message) return;
+	  if (msg.key.fromMe) return;
 
-  const sender = msg.key.remoteJid;
-  const text =
-    msg.message.extendedTextMessage?.text ||
-    msg.message.conversation ||
-    msg.message.imageMessage?.caption ||
-    msg.message.videoMessage?.caption ||
-    msg.message.buttonsResponseMessage?.selectedButtonId ||
-    msg.message.templateButtonReplyMessage?.selectedId ||
-    msg.message.listResponseMessage?.singleSelectReply?.selectedRowId ||
-    msg.message.locationMessage?.name ||
-    "";
+	  const sender = msg.key.remoteJid;
+	  const text =
+		msg.message?.extendedTextMessage?.text ||
+		msg.message?.conversation ||
+		msg.message?.imageMessage?.caption ||
+		msg.message?.videoMessage?.caption ||
+		msg.message?.buttonsResponseMessage?.selectedButtonId ||
+		msg.message?.templateButtonReplyMessage?.selectedId ||
+		msg.message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+		msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
+		"";
 
-  console.log(`[${phoneNumber}] Pesan dari ${sender}: ${text}`);
+	  console.log(`[${phoneNumber}] Pesan dari ${sender}: ${text}`);
 
-  // Contoh auto-reply sederhana
-  if (text.trim().toLowerCase() === "ping") {
-    await sock.sendMessage(sender, { text: "pong 🏓" });
-	return;
-  }
-  
-  // --- Redis push section ---
-  if (redis) {
-		try {
+	  const messageType = Object.keys(msg.message)[0];
+
+	  if (text.trim().toLowerCase() === "ping") {
+		await sock.sendMessage(sender, { text: "pong 🏓" });
+		return;
+	  }
+	  
+	  
+	try {
 		  const session = getSession(phoneNumber);
-
-		  // siapkan payload ke Redis
 		  const payload = {
 			bot_device: {
 			  phone: phoneNumber,
@@ -100,14 +97,25 @@ export async function connectToWhatsApp(phoneNumber) {
 			  connected: !!session,
 			  last_connection: new Date().toISOString(),
 			},
-			...msg,
+			message_id: msg.key.id,
+			sender: msg.key.remoteJid,
+			push_name: msg.pushName,
+			timestamp: msg.messageTimestamp,
+			message_type: messageType,
+			text:
+			  msg.message.extendedTextMessage?.text ||
+			  msg.message.conversation ||
+			  "",
+			raw: msg
 		  };
-		  await redis.publish("whatsapp:inbox", JSON.stringify(payload, null, 2));
-		  console.log("📤 Pesan dikirim ke Redis");
-		} catch (err) {
-		  console.error(`Redis push error: ${err?.message || err}`);
-		}
-	  }
+		  const payloadSize = Buffer.byteLength(JSON.stringify(payload), "utf8");
+		  
+		  await sock.sendMessage(sender, { text: "Tunggu sebentar..." });
+		  
+	} catch (err) {
+		  console.error(`error: ${err?.message || err}`);
+	}
+	  
   });
 
 

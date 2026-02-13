@@ -4,6 +4,8 @@ import path from "path";
 import multer from "multer";
 import swaggerUi from "swagger-ui-express";
 import bodyParser from "body-parser";
+import cors from "cors";
+import os from "os";
 import { handleConnect, handleQRPage, handleQRView } from "./controllers/app.js";
 import { connectToWhatsApp } from "./whatsapp.js";
 import route from "./apis/routes.js";
@@ -11,6 +13,9 @@ import route from "./apis/routes.js";
 const app = express();
 const upload = multer();
 const sessionRoot = path.resolve("./src/sessions");
+
+// CORS supaya bisa diakses IP luar
+app.use(cors({ origin: "*", methods: ["GET","POST","PUT","DELETE"], allowedHeaders: ["Content-Type","Authorization"] }));
 
 // Swagger
 const swaggerFilePath = path.join(process.cwd(), "openapi.json");
@@ -23,6 +28,9 @@ if (fs.existsSync(swaggerFilePath)) {
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(upload.none());
+
+// Root redirect
+app.get("/", (req, res) => res.redirect("/docs"));
 
 // WA endpoints
 app.get("/wa/connect", handleConnect);
@@ -51,6 +59,20 @@ autoReconnectFromDisk();
 
 // Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () =>
-  console.log(`Server running at http://localhost:${PORT}`)
-);
+const HOST = "0.0.0.0";
+app.listen(PORT, HOST, () => {
+  console.log(`✅ Server running at:`);
+  console.log(`   → Local:   http://localhost:${PORT}`);
+  console.log(`   → Network: http://${getLocalIP()}:${PORT}`);
+});
+
+// Fungsi untuk ambil IP lokal
+function getLocalIP() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === "IPv4" && !net.internal) return net.address;
+    }
+  }
+  return "0.0.0.0";
+}

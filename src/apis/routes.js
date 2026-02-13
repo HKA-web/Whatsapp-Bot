@@ -4,6 +4,6 @@ import { checkRegistered } from "../middlewares/registered.js";
 
 const router = Router();
 
-router.post("/send-messages", checkRegistered, sendMessage);
+router.post("/send-messages", sendMessage);
 
 export default router;
